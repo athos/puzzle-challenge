@@ -25,28 +25,23 @@
                      :path (conj path record))))
           (get *nodes* (get-in state [:record turn])))))
 
-(defn bad? [{:keys [cop robber turn]}]
-  (and (= turn :cop)
-       (some #{robber} (get *nodes* cop))))
-
-(defn win? [{:keys [cop robber turn]}]
-  (and (= turn :robber)
-       (= cop 0)
-       (#{2 5} robber)))
+(defn bad? [visited? {:keys [record path]}]
+  (let [{:keys [cop robber turn]} record
+        too-near-cop? #(some #{%} (get *nodes* cop))]
+    (if (= turn :cop)
+      (let [{prev-robber :robber} (peek path)]
+        (and (not (every? too-near-cop? (get *nodes* prev-robber)))
+             (too-near-cop? robber)))
+      (visited? record))))
 
 (defn solve
   ([init]
-   (solve (conj PersistentQueue/EMPTY [{:record init :path []}]) #{}))
+   (solve (conj PersistentQueue/EMPTY {:record init :path []}) #{}))
   ([queue visited]
-   (let [states (peek queue), queue (pop queue)]
-     (when states
-       (if-let [state (some (fn [{:keys [record] :as state}]
-                              (and (win? record) state))
-                            states)]
-         (conj (:path state) (:record state))
-         (let [states' (->> (mapcat step states)
-                            (remove (fn [{:keys [record]}]
-                                      (or (visited record)
-                                          (bad? record)))))]
-           (recur (conj queue states')
-                  (into visited (map :record) states'))))))))
+   (let [{:keys [record] :as state} (peek queue), queue (pop queue)]
+     (when state
+       (if (and (= (:cop record) (:robber record)))
+         (conj (:path state) record)
+         (let [states (remove (partial bad? visited) (step state))]
+           (recur (into queue states)
+                  (into visited (map :record) states))))))))
