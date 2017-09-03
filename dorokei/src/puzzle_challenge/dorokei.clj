@@ -15,20 +15,20 @@
     :cop))
 
 (defn step [{:keys [record path] :as state}]
-  (let [{:keys [turn cop]} record]
+  (let [{turn :next} record]
     (keep (fn [node]
-            (when (or (not= turn :robber) (not= cop node))
+            (when (or (not= turn :robber) (not= (:cop record) node))
               (assoc state
                      :record (assoc record
-                                    :turn (opponent-of turn)
+                                    :next (opponent-of turn)
                                     turn node)
                      :path (conj path record))))
           (get *nodes* (get-in state [:record turn])))))
 
 (defn bad? [visited? {:keys [record path]}]
-  (let [{:keys [cop robber turn]} record
+  (let [{:keys [cop robber next]} record
         too-near-cop? #(some #{%} (get *nodes* cop))]
-    (if (= turn :cop)
+    (if (= next :cop)
       (let [{prev-robber :robber} (peek path)]
         (and (not (every? too-near-cop? (get *nodes* prev-robber)))
              (too-near-cop? robber)))
