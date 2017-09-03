@@ -14,34 +14,33 @@
     :cop :robber
     :cop))
 
-(defn step [{:keys [record path] :as state}]
-  (let [{turn :next} record]
+(defn step [{:keys [record path visited]}]
+  (let [turn (:next record)]
     (keep (fn [node]
             (when (or (not= turn :robber) (not= (:cop record) node))
-              (assoc state
-                     :record (assoc record
-                                    :next (opponent-of turn)
-                                    turn node)
-                     :path (conj path record))))
-          (get *nodes* (get-in state [:record turn])))))
+              (let [record' (assoc record
+                                   :next (opponent-of turn)
+                                   turn node)]
+                (when-not (visited record')
+                  {:record record'
+                   :path (conj path record)
+                   :visited (conj visited record)}))))
+          (get *nodes* (get record turn)))))
 
-(defn bad? [visited? {:keys [record path]}]
+(defn bad? [{:keys [record path]}]
   (let [{:keys [cop robber next]} record
         too-near-cop? #(some #{%} (get *nodes* cop))]
-    (if (= next :cop)
+    (when (= next :cop)
       (let [{prev-robber :robber} (peek path)]
-        (and (not (every? too-near-cop? (get *nodes* prev-robber)))
-             (too-near-cop? robber)))
-      (visited? record))))
+        (and (some (complement too-near-cop?) (get *nodes* prev-robber))
+             (too-near-cop? robber))))))
 
-(defn solve
-  ([init]
-   (solve (conj PersistentQueue/EMPTY {:record init :path []}) #{}))
-  ([queue visited]
-   (let [{:keys [record] :as state} (peek queue), queue (pop queue)]
-     (when state
-       (if (and (= (:cop record) (:robber record)))
-         (conj (:path state) record)
-         (let [states (remove (partial bad? visited) (step state))]
-           (recur (into queue states)
-                  (into visited (map :record) states))))))))
+(defn solve [init]
+  (loop [queue (conj PersistentQueue/EMPTY
+                     {:record init :path [] :visited #{}})]
+    (let [{:keys [record] :as state} (peek queue), queue (pop queue)]
+      (when state
+        (if (and (= (:cop record) (:robber record)))
+          (conj (:path state) record)
+          (let [states (remove bad? (step state))]
+            (recur (into queue states))))))))
