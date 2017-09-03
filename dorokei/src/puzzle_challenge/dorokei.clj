@@ -31,7 +31,7 @@
   (let [{:keys [cop robber next]} record
         too-near-cop? #(some #{%} (get *nodes* cop))]
     (when (= next :cop)
-      (let [{prev-robber :robber} (peek path)]
+      (let [prev-robber (:robber (peek path))]
         (and (some (complement too-near-cop?) (get *nodes* prev-robber))
              (too-near-cop? robber))))))
 
